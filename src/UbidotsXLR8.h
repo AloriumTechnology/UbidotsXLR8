@@ -41,6 +41,7 @@ boards connected via the ATWINC1500 WiFi module.
 #define IDLE_TIMEOUT_MS  3000      // Amount of time to wait (in milliseconds)
 #define PORT 9012
 
+#define FIRMWARE "19.5.2"
 #define USER_AGENT "XLR81500/1.0"
 
 #define MAX_VALUES 3
@@ -62,20 +63,21 @@ class Ubidots {
   uint8_t _currentValue;
   Value * _val;
   WiFiClient _client;
+  bool _debug = false;
   void MacAsLabel();
   void printWifiStatus();
 
  public:
   Ubidots(char* token, char* server = SERVER);
   void initialize();
+  void setDebug();
   void setDeviceName(char* deviceName);
   void setDeviceLabel(char* deviceLabel);
   float getValue(char* id);
   float getValueWithDeviceLabel(char* device, char* variable);
-  void add(char *variable_id, double value);
-  void add(char *variable_id, double value, char* ctext);
-  void add(char *variable_id, double value, char* ctext, unsigned long timestamp);
-  bool sendValue(char* varID, float val);
+  void add(char *variable_label, double value);
+  void add(char *variable_label, double value, char* ctext);
+  void add(char *variable_label, double value, char* ctext, unsigned long timestamp);
   bool sendAll();
   void wifiConnection(char* ssid, char* pass);
 

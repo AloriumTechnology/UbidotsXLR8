@@ -53,13 +53,20 @@ void Ubidots::initialize() {
     while (true);
   }
 
-  String fv = WiFi.firmwareVersion();
-  if (fv != "19.5.2") {
+  char* fv = WiFi.firmwareVersion();
+  if (strcmp(fv, FIRMWARE)) {
     Serial.println("Please upgrade the firmware");
   }
 
   MacAsLabel();
 
+}
+
+/**
+ * This function turns on various debugging statement in the code
+ */
+void Ubidots::setDebug() {
+  _debug = true;
 }
 
 /**
@@ -96,11 +103,12 @@ void Ubidots::setDeviceLabel(char* deviceLabel) {
  */
 float Ubidots::getValue(char* id) {
 
-  String response;
   int timeout = 0;
   float num;
   uint8_t bodyPosinit;
   uint8_t max_retries = 0;
+  char* response;
+  char * pch;
   char* data = (char *) malloc(sizeof(char) * 300);
 
   // Build the GET command
@@ -109,15 +117,24 @@ float Ubidots::getValue(char* id) {
   _client.connect(_server, PORT); // Initial connection
 
   while(!_client.connected()) {
+    if (_debug) {
+      Serial.println("Attempting to connect");
+    }
     _client.connect(_server, PORT);
     max_retries++;
     if(max_retries>5){
+      if (_debug) {
+        Serial.println("Connection failed");
+      }
       return NULL;
     }
     delay(5000);
   }
 
-  Serial.println(data);  //JGP
+  if (_debug) {
+    Serial.println("Getting variable:");
+    Serial.println(data);
+  }
   _client.print(data);
   free(data);
 
@@ -125,26 +142,40 @@ float Ubidots::getValue(char* id) {
     timeout++;
     delay(1);
     if(timeout>=5000){
+      if (_debug) {
+        Serial.println("Max timeout reached");
+      }
       _client.stop();
       delay(5);
       return NULL;
     }
   }
+
+  response = (char *) malloc(sizeof(char) * 300);
 
   while (_client.available()) {
     char c = _client.read();
     if (c == -1){
+      if (_debug) {
+        Serial.println("Error reading from server");
+      }
       _client.stop();
       delay(5);
       return NULL;
     }
-    response += c;
+    if (((c >= '0') && (c <= '9')) || (c == '.') || (c == '-')) {
+      sprintf(response, "%s%s", response, c);
+    }
     delay(10);
   }
 
-  bodyPosinit = 4 + response.indexOf("\r\n\r\n");
-  response = response.substring(bodyPosinit);
-  num = response.toFloat();
+  num = atof(response);
+  free(response);
+
+  if (_debug) {
+    Serial.print("Got: ");
+    Serial.println(num);
+  }
 
   _client.stop();
   delay(5);
@@ -160,14 +191,14 @@ float Ubidots::getValue(char* id) {
  */
 float Ubidots::getValueWithDeviceLabel(char* device, char* variable) {
 
-  String response;
+  char * response;
+  char * pch;
   int timeout = 0;
   float num;
   uint8_t bodyPosinit;
   uint8_t max_retries = 0;
   char* data = (char *) malloc(sizeof(char) * 300);
 
-  // Use String operators below instead of sprintf to build LV command
   sprintf(data, "%s|LV|%s|%s:%s|end", USER_AGENT, _token, device, variable);
 
   _client.connect(_server, PORT); // Initial connection
@@ -181,7 +212,9 @@ float Ubidots::getValueWithDeviceLabel(char* device, char* variable) {
     delay(5000);
   }
 
-  Serial.println(data);  //JGP
+  if (_debug) {
+    Serial.println(data);
+  }
   _client.print(data);
   free(data);
 
@@ -195,6 +228,8 @@ float Ubidots::getValueWithDeviceLabel(char* device, char* variable) {
     }
   }
 
+  response = (char *) malloc(sizeof(char) * 300);
+
   while (_client.available()) {
     char c = _client.read();
     if (c == -1){
@@ -202,13 +237,14 @@ float Ubidots::getValueWithDeviceLabel(char* device, char* variable) {
       delay(5);
       return NULL;
     }
-    response += c;
+    if (((c >= '0') && (c <= '9')) || (c == '.') || (c == '-')) {
+      sprintf(response, "%s%c", response, c);
+    }
     delay(10);
   }
 
-  bodyPosinit = 4 + response.indexOf("\r\n\r\n");
-  response = response.substring(bodyPosinit);
-  num = response.toFloat();
+  num = atof(response);
+  free(response);
 
   _client.stop();
   delay(5);
@@ -254,72 +290,12 @@ void Ubidots::add(char *variable_label, double value, char *ctext, unsigned long
 }
 
 /**
- * Standalone sendValue function
- * @arg variable_label variable label to save in a struct
- * @arg value variable value to save in a struct
- */
-bool Ubidots::sendValue(char* varID, float val ) {
-
-  String response;
-  int timeout = 0;
-  uint8_t max_retries = 0;
-  char* allData = (char *) malloc(sizeof(char) * 300);
-
-  allData = sprintf("%s|POST|%s|%s=>%s:%f|end", USER_AGENT, _token, _dsTag, varID, val);
-
-  Serial.println(allData);
-
-  _client.connect(_server, PORT);
-
-  while (!_client.connected()) {
-    _client.connect(_server, PORT);
-    max_retries++;
-    if (max_retries > 5) {
-      free(allData);
-      return false;
-    }
-    delay(5000);
-  }
-
-  _client.print(allData);
-  free(allData);
-
-  while (!_client.available() && timeout < 5000) {
-    timeout++;
-    delay(1);
-    if (timeout >= 5000) {
-      _client.stop();
-      delay(5);
-      return false;
-    }
-  }
-
-  while (_client.available()) {
-    char c = _client.read();
-    if (c == -1) {
-      _client.stop();
-      delay(5);
-      return false;
-    }
-    response += c;
-    delay(10);
-  }
-
-  Serial.println(response);
-  Serial.println();
-  _client.stop();
-  _currentValue = 0;
-  return true;
-
-}
-
-/**
  * Send all data of all variables that you saved
  * @return true upon success, false upon error.
  */
 bool Ubidots::sendAll() {
 
-  String response;
+  char * response;
   int timeout = 0;
   uint8_t max_retries = 0;
   char* allData = (char *) malloc(sizeof(char) * 300);
@@ -354,14 +330,19 @@ bool Ubidots::sendAll() {
 
   sprintf(allData, "%s|end", allData);
 
-  Serial.println(allData);  //JGP
+  if (_debug) {
+    Serial.println(allData);
+  }
 
-  _client.connect(_server, PORT);  //JGP
+  _client.connect(_server, PORT);
 
   while (!_client.connected()) {
     _client.connect(_server, PORT);
     max_retries++;
     if (max_retries > 5) {
+      if (_debug) {
+        Serial.println("Connection failed");
+      }
       free(allData);
       _currentValue = 0;
       _client.stop();
@@ -370,6 +351,9 @@ bool Ubidots::sendAll() {
     delay(5000);
   }
 
+  if (_debug) {
+    Serial.println("Sending data");
+  }
   _client.print(allData);
   free(allData);
 
@@ -377,25 +361,37 @@ bool Ubidots::sendAll() {
     timeout++;
     delay(1);
     if (timeout >= 5000) {
+      if (_debug) {
+        Serial.println("Max timeout reached");
+      }
       _client.stop();
       delay(5);
       return false;
     }
   }
+
+  response = (char *) malloc(sizeof(char) * 300);
 
   while (_client.available()) {
     char c = _client.read();
     if (c == -1) {
+      if (_debug) {
+        Serial.println("Error connecting to server");
+      }
       _client.stop();
       delay(5);
       return false;
     }
-    response += c;
+    sprintf(response, "%s%c", response, c);
     delay(10);
   }
 
-  Serial.println(response);
-  Serial.println();
+  if (_debug) {
+    Serial.print("Response: ");
+    Serial.println(response);
+  }
+  free(response);
+
   _client.stop();
   _currentValue = 0;
   return true;
