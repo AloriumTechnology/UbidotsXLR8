@@ -18,8 +18,7 @@ LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-Made by Mateo Velez - Metavix for Ubidots Inc
-Modified by Maria Hernandez for Ubidots Inc
+Adapted from code by Ubidots Inc (ubidots.com)
 
 09 March 2018: Modified by Jason Pecor - Alorium Technology
 26 April 2018: Modified by Bryan Craker - Alorium Technology
@@ -105,7 +104,6 @@ float Ubidots::getValue(char* id) {
 
   int timeout = 0;
   float num;
-  uint8_t bodyPosinit;
   uint8_t max_retries = 0;
   char* response;
   char * pch;
@@ -122,10 +120,11 @@ float Ubidots::getValue(char* id) {
     }
     _client.connect(_server, PORT);
     max_retries++;
-    if(max_retries>5){
+    if (max_retries > 5){
       if (_debug) {
         Serial.println("Connection failed");
       }
+      free(data);
       return NULL;
     }
     delay(5000);
@@ -161,6 +160,7 @@ float Ubidots::getValue(char* id) {
       }
       _client.stop();
       delay(5);
+      free(response);
       return NULL;
     }
     if (((c >= '0') && (c <= '9')) || (c == '.') || (c == '-')) {
@@ -195,7 +195,6 @@ float Ubidots::getValueWithDeviceLabel(char* device, char* variable) {
   char * pch;
   int timeout = 0;
   float num;
-  uint8_t bodyPosinit;
   uint8_t max_retries = 0;
   char* data = (char *) malloc(sizeof(char) * 300);
 
@@ -207,6 +206,7 @@ float Ubidots::getValueWithDeviceLabel(char* device, char* variable) {
     _client.connect(_server, PORT);
     max_retries++;
     if(max_retries>5){
+      free(data);
       return NULL;
     }
     delay(5000);
@@ -235,6 +235,7 @@ float Ubidots::getValueWithDeviceLabel(char* device, char* variable) {
     if (c == -1){
       _client.stop();
       delay(5);
+      free(response);
       return NULL;
     }
     if (((c >= '0') && (c <= '9')) || (c == '.') || (c == '-')) {
@@ -305,11 +306,8 @@ bool Ubidots::sendAll() {
   //
   for (int i = 0; i < _currentValue; ) {
 
-    // Arduino doesn't handle floats in the sprintf function, we need to convert
-    // float to String to char* as a workaround
-    String fls = String((_val + i)->idValue, 2);
-    char* flc = (char *) malloc(sizeof(char) * fls.length());
-    fls.toCharArray(flc, fls.length());
+    char* flc = (char *) malloc(sizeof(char) * 20);
+    dtostrf(((_val + i)->idValue), 4, 2, flc);
     sprintf(allData, "%s%s:%s", allData, (_val + i)->idName, flc);
     free(flc);
 

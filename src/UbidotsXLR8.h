@@ -18,7 +18,7 @@ LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-Made by Mateo Velez - Metavix for Ubidots Inc
+Adapted from code by Ubidots Inc (ubidots.com)
 
 09 March 2018: Modified by Jason Pecor - Alorium Technology
 26 April 2018: Modified by Bryan Craker - Alorium Technology
